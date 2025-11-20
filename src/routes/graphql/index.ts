@@ -25,7 +25,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
 
   const schema = new GraphQLSchema({
     query: new GraphQLObjectType({
-      name: 'Query',
+      name: 'MemberTypes',
       fields: {
         memberTypes: {
           type: new GraphQLList(MemberType),
@@ -36,33 +36,22 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   });
 
   fastify.route({
-    url: '/member-types',
-    method: 'GET',
-    async handler() {
-      const result = await graphql({
+    url: '/',
+    method: 'POST',
+    schema: {
+      ...createGqlResponseSchema,
+      response: {
+        200: gqlResponseSchema,
+      },
+    },
+    async handler(req) {
+      return graphql({
         schema,
         source: `query { memberTypes { id discount postsLimitPerMonth } }`,
+        variableValues: req.body.variables,
         contextValue: { prisma },
       });
-
-      return result.data?.memberTypes || [];
     },
-    //   schema: {
-    //     ...createGqlResponseSchema,
-    //     response: {
-    //       200: gqlResponseSchema,
-    //     },
-    //   },
-    //   async handler(req) {
-    //     const { query, variables } = req.body;
-
-    //     return await graphql({
-    //       schema,
-    //       source: query,
-    //       variableValues: variables,
-    //       contextValue: { prisma },
-    //     });
-    //   },
   });
 };
 
