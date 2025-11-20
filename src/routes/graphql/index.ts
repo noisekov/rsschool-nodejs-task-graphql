@@ -12,6 +12,7 @@ import {
   GraphQLEnumType,
 } from 'graphql';
 import { UUIDType } from './types/uuid.js';
+import type { Post, Profile, User, SubscribersOnAuthors } from '@prisma/client';
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
@@ -34,8 +35,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       content: { type: GraphQLString },
       authorId: { type: UUIDType },
       author: {
-        type: UserGQL,
-        resolve: async (post) =>
+        type: UserGQL as GraphQLObjectType,
+        resolve: async (post: Post) =>
           await prisma.user.findUnique({ where: { id: post.authorId } }),
       },
     }),
@@ -51,13 +52,13 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       memberTypeId: { type: GraphQLString },
       userId: { type: UUIDType },
       user: {
-        type: UserGQL,
-        resolve: async (profile) =>
+        type: UserGQL as GraphQLObjectType,
+        resolve: async (profile: Profile) =>
           await prisma.user.findUnique({ where: { id: profile.userId } }),
       },
       memberType: {
         type: MemberTypeGQL,
-        resolve: async (profile) =>
+        resolve: async (profile: Profile) =>
           await prisma.memberType.findUnique({ where: { id: profile.memberTypeId } }),
       },
     }),
@@ -72,32 +73,36 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       balance: { type: GraphQLFloat },
       posts: {
         type: new GraphQLList(PostGQL),
-        resolve: async (user) =>
+        resolve: async (user: User) =>
           await prisma.post.findMany({ where: { authorId: user.id } }),
       },
       profile: {
-        type: ProfileGQL,
-        resolve: async (user) =>
+        type: ProfileGQL as GraphQLObjectType,
+        resolve: async (user: User) =>
           await prisma.profile.findUnique({ where: { userId: user.id } }),
       },
       userSubscribedTo: {
         type: new GraphQLList(UserGQL),
-        resolve: async (user) => {
+        resolve: async (user: User) => {
           const subscriptions = await prisma.subscribersOnAuthors.findMany({
             where: { subscriberId: user.id },
             include: { author: true },
           });
-          return subscriptions.map((sub) => sub.author);
+          return subscriptions.map(
+            (sub: SubscribersOnAuthors & { author: User }) => sub.author,
+          );
         },
       },
       subscribedToUser: {
         type: new GraphQLList(UserGQL),
-        resolve: async (user) => {
+        resolve: async (user: User) => {
           const subscriptions = await prisma.subscribersOnAuthors.findMany({
             where: { authorId: user.id },
             include: { subscriber: true },
           });
-          return subscriptions.map((sub) => sub.subscriber);
+          return subscriptions.map(
+            (sub: SubscribersOnAuthors & { subscriber: User }) => sub.subscriber,
+          );
         },
       },
     }),
@@ -123,7 +128,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       memberType: {
         type: MemberTypeGQL,
         args: { id: { type: MemberTypeIdGQL } },
-        resolve: async (_, { id }) =>
+        resolve: async (_: unknown, { id }: { id: string }) =>
           await prisma.memberType.findUnique({ where: { id } }),
       },
       posts: {
@@ -131,27 +136,30 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         resolve: async () => await prisma.post.findMany(),
       },
       post: {
-        type: PostGQL,
+        type: PostGQL as GraphQLObjectType,
         args: { id: { type: UUIDType } },
-        resolve: async (_, { id }) => await prisma.post.findUnique({ where: { id } }),
+        resolve: async (_: unknown, { id }: { id: string }) =>
+          await prisma.post.findUnique({ where: { id } }),
       },
       profiles: {
         type: new GraphQLList(ProfileGQL),
         resolve: async () => await prisma.profile.findMany(),
       },
       profile: {
-        type: ProfileGQL,
+        type: ProfileGQL as GraphQLObjectType,
         args: { id: { type: UUIDType } },
-        resolve: async (_, { id }) => await prisma.profile.findUnique({ where: { id } }),
+        resolve: async (_: unknown, { id }: { id: string }) =>
+          await prisma.profile.findUnique({ where: { id } }),
       },
       users: {
         type: new GraphQLList(UserGQL),
         resolve: async () => await prisma.user.findMany(),
       },
       user: {
-        type: UserGQL,
+        type: UserGQL as GraphQLObjectType,
         args: { id: { type: UUIDType } },
-        resolve: async (_, { id }) => await prisma.user.findUnique({ where: { id } }),
+        resolve: async (_: unknown, { id }: { id: string }) =>
+          await prisma.user.findUnique({ where: { id } }),
       },
     },
   });
