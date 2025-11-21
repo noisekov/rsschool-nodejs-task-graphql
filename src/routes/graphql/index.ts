@@ -12,9 +12,12 @@ import {
   GraphQLEnumType,
   GraphQLInputObjectType,
   GraphQLNonNull,
+  validate,
+  parse,
 } from 'graphql';
 import { UUIDType } from './types/uuid.js';
 import type { Post, Profile, User, SubscribersOnAuthors } from '@prisma/client';
+import depthLimit from 'graphql-depth-limit';
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
@@ -419,10 +422,21 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       },
     },
     async handler(req) {
+      const { query, variables } = req.body;
+
+      try {
+        const validationErrors = validate(schema, parse(query), [depthLimit(5)]);
+        if (validationErrors.length > 0) {
+          return { errors: validationErrors };
+        }
+      } catch (error) {
+        return { errors: [error] };
+      }
+
       return graphql({
         schema,
-        source: req.body.query,
-        variableValues: req.body.variables,
+        source: query,
+        variableValues: variables,
         contextValue: { prisma },
       });
     },
